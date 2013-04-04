@@ -52,13 +52,18 @@ Zs = {}; %#ok<NASGU>
 % All the log-likelihoods we've evaluated so far
 LL = [];
 
+% Hash values for each Z we've already sampled
+hashs = []; %#ok<NASGU>
+
 %% Data Generation
 [X,Z_true,A_true] = sampleData( N,D,K_max, alpha,sigma2_A,sigma2_X );
+LL_true = log_P_Z_X( Z_true, X, sigma2_A, sigma2_X ) + log_P_Z( Z_true, alpha );
+fprintf('True log likelihood is %f\n', LL_true );
 
 %% Initialisation
 
 % Generate Initial Zs
-Zs = initialiseZs( alpha, N,K_max, GP_init, GP_initCheat, Z_true );
+[Zs, hashs] = initialiseZs( alpha, N,K_max, GP_init, GP_initCheat, Z_true );
 % Add the initial Zs to the Kernel
 C = expandKernel( C, {}, Zs{1} );
 for i = 2:length( Zs )
@@ -76,7 +81,7 @@ end
 for it = 1:maximumIterations
 
     % To test the rest of the code
-    Z_new = ibprnd( alpha, N, K_max );
+    [Z_new, hash_new] = leftOrderedForm( ibprnd( alpha, N, K_max ) );
     
     % Expand the kernel with the new matrix Z
     fprintf('Adding sample %i to kernel\n', length(Zs) );
@@ -87,7 +92,11 @@ for it = 1:maximumIterations
         + log_P_Z( Z_new, alpha ); %#ok<SAGROW>
     
     % Add the new matrix to the store of matrices
-    Zs{end+1} = Z_new; %#ok<SAGROW>
+    Zs{end+1}    = Z_new; %#ok<SAGROW>
+    hashs(end+1) = hash_new; %#ok<SAGROW>
+    
+    [maxLL,sampleNo] = max(LL);
+    fprintf( 'it %d: max(LL) = %f (Sample # %d)\n', it, maxLL, sampleNo );
     
 end
 
